@@ -78,6 +78,10 @@ gulp.task("ts", () => {
         packageCache: {}
     })
     .plugin(tsify)
+    .transform('babelify', {
+        presets: ['env'],
+        extensions: ['.ts']
+    })
     .bundle()
     .pipe(plumber())
     .pipe(source('assets/js/bundle.js'))
