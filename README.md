@@ -1,2 +1,3 @@
 # itsy_testing
-Testing stuff for itsy
+
+Esqueleto para criação de um novo site
