@@ -3,12 +3,19 @@ var browserify = require('browserify');
 var source = require('vinyl-source-stream');
 const browserSync = require("browser-sync").create();
 var tsify = require('tsify');
-var del = require('del');
+const del = require('del');
 var sass = require('gulp-sass');
 var plumber = require('gulp-plumber');
 var uglify = require('gulp-uglify');
 var buffer = require('vinyl-buffer');
 var sourcemaps = require('gulp-sourcemaps');
+const glob = require('glob');
+const fs = require('fs');
+const path = require("path");
+const rev = require("gulp-rev");
+const revdel = require('gulp-rev-delete-original');
+const revReplace = require("gulp-rev-replace");
+const flatten = require('gulp-flatten');
 
 var paths = {
     pages: ['src/*.html']
@@ -82,23 +89,129 @@ gulp.task("clearCss", () => {
     return del([pathsProject['src']('css')]);
 });
 
-gulp.task('default', gulp.series(gulp.parallel('copy-html'), function () {
-    return browserify({
-        basedir: '.',
-        debug: true,
-        entries: ['src/assets/ts/main.ts'],
-        cache: {},
-        packageCache: {}
-    })
-    .plugin(tsify)
-    .bundle()
-    .pipe(plumber())
-    .pipe(source('assets/js/bundle.js'))
-    .pipe(buffer())
-    .pipe(sourcemaps.init({loadMaps: true}))
-    .pipe(uglify())
-    .pipe(sourcemaps.write('./'))
-    .pipe(gulp.dest('src'))
-    .pipe(gulp.dest('dist'));
-}, "sass", "server"));
+gulp.task('copy', () => {
+    return gulp.src([
+            `${pathsProject.src()}/**/*`,
+            `!${pathsProject.src('vendors')}/**/*`,
+            `!${pathsProject.src('scss')}`,
+            `!${pathsProject.src('ts')}`,
+        ])
+        .pipe(gulp.dest(`${pathsProject.build}`));
+});
 
+gulp.task('clear', () => {
+    return del([pathsProject.build]);
+});
+
+gulp.task('uglify', function () {
+    return src([
+        `${pathsProject.build}/**/*.js`,
+        `!${pathsProject.build}/assets/vendors/**/*.js`
+    ])
+    .pipe(uglify())
+    .pipe(dest(
+        `${pathsProject.build}`
+    ));
+});
+
+function flattenCustom(pathName) {
+    const {
+        dir
+    } = path.parse(pathName);
+
+    return gulp.src([pathName])
+        .pipe(flatten({
+            includeParents: [1, 1]
+        }))
+        .pipe(gulp.dest(`${dir.replace(/^src|^\.\/src/g, pathsProject.build)}`));
+}
+
+gulp.task('getPaths', () => {
+    return glob(`${ pathsProject['src']() }/**/*.{html,htm}`, {
+        ignore: [`${pathsProject.src('vendors')}/**/*`]
+    }, (er, files) => {
+        if (er) throw er;
+        /**
+         * Versão javascript
+         */
+        files.map(async res => {
+            await fs.readFile(res, 'utf-8', function read(err, data) {
+                if (err) throw err;
+                const content = data;
+
+                const regScript = /<script.*?src="(.*?)"/g;
+                const matchScript = content.match(regScript);
+                if (matchScript) {
+                    return matchScript.map(resMap => {
+                        const regSource = /src="(.*?)"/g;
+                        const source = regSource.exec(resMap);
+                        if (source[1]) {
+                            let newPath = source[1].replace(/^(\..?.|\.)\//g, '');
+                            if (/vendors/.test(newPath)) return flattenCustom(`${pathsProject.src()}/${newPath}`);
+                        }
+                    });
+
+                }
+                //  ----- fim
+            });
+        });
+        /**
+         * Versão CSS
+         */
+        files.map(async res => {
+            await fs.readFile(res, 'utf-8', function read(err, data) {
+                if (err) throw err;
+                const content = data;
+
+                const regCss = /<link.*?href="(.*?)"/g;
+                const matchCss = content.match(regCss);
+                if (matchCss) {
+                    return matchCss.map(resMap => {
+                        const regSource = /href="(.*?)"/g;
+                        const source = regSource.exec(resMap);
+                        if (source[1]) {
+                            let newPath = source[1].replace(/^(\..?.|\.)\//g, '');
+                            if (/vendors/.test(newPath)) return flattenCustom(`${pathsProject.src()}/${newPath}`);
+                        }
+                    });
+                }
+            });
+        });
+        // ---- FIM
+    });
+});
+
+gulp.task('cleanTrash', () => {
+    return del([
+        `${pathsProject.build}/assets/scss`,
+        `${pathsProject.build}/rev-manifest.json`
+    ]);
+});
+
+gulp.task("revision", () => {
+    var pathBuild = pathsProject.build;
+    const ignore = [
+        `!${pathBuild}/assets/css/fontawesome/**/*.css`,
+        `!${pathBuild}/assets/fonts/**/*.css`
+    ];
+    return gulp.src([`${pathBuild}/**/*.{css,js}`, ...ignore], {
+            base: pathBuild
+        })
+        .pipe(rev())
+        .pipe(gulp.dest(pathBuild))
+        .pipe(revdel())
+        .pipe(rev.manifest())
+        .pipe(gulp.dest(pathBuild));
+});
+
+gulp.task("revreplace", () => {
+    const manifest = gulp.src(`${pathsProject.build}/rev-manifest.json`);
+    return gulp.src(`${pathsProject.build}/**/*.{html,htm}`)
+        .pipe(revReplace({
+            manifest: manifest
+        }))
+        .pipe(gulp.dest(pathsProject.build));
+});
+
+gulp.task('default', gulp.series("ts", "sass", "server"));
+gulp.task('build', gulp.series("clear", "copy", "getPaths", "revision", "revreplace", "cleanTrash"));
