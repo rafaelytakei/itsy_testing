@@ -5,6 +5,7 @@ const browserSync = require("browser-sync").create();
 var tsify = require('tsify');
 var del = require('del');
 var sass = require('gulp-sass');
+var plumber = require('gulp-plumber');
 var paths = {
     pages: ['src/*.html']
 };
@@ -53,7 +54,7 @@ gulp.task("sass", () => {
         .pipe(sass({
             outputStyle: "compressed"
         }).on('error', sass.logError))
-        .pipe(dest(`${pathsProject['src']()}/assets/css`))
+        .pipe(gulp.dest(`${pathsProject['src']()}/assets/css`))
         .pipe(browserSync.stream());
 });
 
@@ -67,6 +68,7 @@ gulp.task("ts", () => {
     })
     .plugin(tsify)
     .bundle()
+    .pipe(plumber())
     .pipe(source('assets/js/bundle.js'))
     .pipe(gulp.dest('src'))
     .pipe(browserSync.stream());
@@ -86,8 +88,9 @@ gulp.task('default', gulp.series(gulp.parallel('copy-html'), function () {
     })
     .plugin(tsify)
     .bundle()
+    .pipe(plumber())
     .pipe(source('assets/js/bundle.js'))
     .pipe(gulp.dest('src'))
     .pipe(gulp.dest('dist'));
-}, "server"));
+}, "sass", "server"));
 

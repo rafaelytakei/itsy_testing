@@ -62,9 +62,5 @@
 
     /* Advanced Options */
     "forceConsistentCasingInFileNames": true  /* Disallow inconsistently-cased references to the same file. */
-  },
-  "files": [
-    "src/assets/ts/main.ts",
-    "src/assets/ts/greet.ts"
-  ]
+  }
 }

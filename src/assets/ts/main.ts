@@ -1,8 +1,7 @@
-import { sayHello } from './greet';
+import { sayHelloWorld, fp } from './helloModule';
 
-function showHello(divName: string, name: string) {
-    let elt = document.getElementById(divName);
-    elt!.innerText = sayHello(name);
-}
-
-showHello('greeting', 'TypeScript');
+/* Document ready */
+$(function() {
+    $('#helloWorld h1').html(sayHelloWorld());
+    $('#paragraph').html(fp);
+})
