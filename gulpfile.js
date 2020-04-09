@@ -6,6 +6,10 @@ var tsify = require('tsify');
 var del = require('del');
 var sass = require('gulp-sass');
 var plumber = require('gulp-plumber');
+var uglify = require('gulp-uglify');
+var buffer = require('vinyl-buffer');
+var sourcemaps = require('gulp-sourcemaps');
+
 var paths = {
     pages: ['src/*.html']
 };
@@ -90,6 +94,10 @@ gulp.task('default', gulp.series(gulp.parallel('copy-html'), function () {
     .bundle()
     .pipe(plumber())
     .pipe(source('assets/js/bundle.js'))
+    .pipe(buffer())
+    .pipe(sourcemaps.init({loadMaps: true}))
+    .pipe(uglify())
+    .pipe(sourcemaps.write('./'))
     .pipe(gulp.dest('src'))
     .pipe(gulp.dest('dist'));
 }, "sass", "server"));
