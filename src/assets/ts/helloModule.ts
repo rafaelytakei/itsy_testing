@@ -3,7 +3,7 @@ export function sayHelloWorld() {
 }
 
 function fillParagraph() {
-    return "Lorem ipsum blablabla";
+    return "Lorem ipsum blablabla test";
 }
 
 export {fillParagraph as fp}

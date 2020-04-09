@@ -16,7 +16,8 @@ const rev = require("gulp-rev");
 const revdel = require('gulp-rev-delete-original');
 const revReplace = require("gulp-rev-replace");
 const flatten = require('gulp-flatten');
-
+const rename = require('gulp-rename');
+const merge = require('merge-stream');
 var paths = {
     pages: ['src/*.html']
 };
@@ -69,24 +70,27 @@ gulp.task("sass", () => {
         .pipe(browserSync.stream());
 });
 
-gulp.task("ts", () => {
-    return browserify({
-        basedir: '.',
-        debug: true,
-        entries: ['src/assets/ts/main.ts'],
-        cache: {},
-        packageCache: {}
-    })
-    .plugin(tsify)
-    .transform('babelify', {
-        presets: ['env'],
-        extensions: ['.ts']
-    })
-    .bundle()
-    .pipe(plumber())
-    .pipe(source('assets/js/bundle.js'))
-    .pipe(gulp.dest('src'))
-    .pipe(browserSync.stream());
+gulp.task("ts", function() {
+    var files = glob.sync('src/assets/ts/*.ts');
+    return merge(files.map(function(file) {
+        return browserify({
+            basedir: '.',
+            debug: true,
+            entries: file,
+            cache: {},
+            packageCache: {}
+        })
+        .plugin(tsify)
+        .transform('babelify', {
+            presets: ['env'],
+            extensions: ['.ts']
+        })
+        .bundle()
+        .pipe(plumber())
+        .pipe(source(path.basename(file, '.ts') + ".js"))
+        .pipe(gulp.dest('src/assets/js'))
+        .pipe(browserSync.stream());
+    }));
 });
 
 gulp.task("clearCss", () => {
