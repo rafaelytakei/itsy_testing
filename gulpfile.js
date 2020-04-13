@@ -1,14 +1,15 @@
-var gulp = require('gulp');
-var browserify = require('browserify');
-var source = require('vinyl-source-stream');
+const gulp = require('gulp');
+const browserify = require('browserify');
+const watchify = require('watchify');
+const source = require('vinyl-source-stream');
 const browserSync = require("browser-sync").create();
-var tsify = require('tsify');
+const tsify = require('tsify');
 const del = require('del');
-var sass = require('gulp-sass');
-var plumber = require('gulp-plumber');
-var uglify = require('gulp-uglify');
-var buffer = require('vinyl-buffer');
-var sourcemaps = require('gulp-sourcemaps');
+const sass = require('gulp-sass');
+const plumber = require('gulp-plumber');
+const uglify = require('gulp-uglify');
+const buffer = require('vinyl-buffer');
+const sourcemaps = require('gulp-sourcemaps');
 const glob = require('glob');
 const fs = require('fs');
 const path = require("path");
@@ -18,6 +19,8 @@ const revReplace = require("gulp-rev-replace");
 const flatten = require('gulp-flatten');
 const rename = require('gulp-rename');
 const merge = require('merge-stream');
+const cache = require('gulp-cached');
+
 var paths = {
     pages: ['src/*.html']
 };
@@ -57,8 +60,7 @@ gulp.task("server", () => {
     });
     // WATCH FILES
     gulp.watch(pathsProject['src']('scss'), gulp.series(['clearCss', 'sass']));
-    gulp.watch(pathsProject['src']('ts'), gulp.series(['ts']));
-    gulp.watch(`${pathsProject['src']()}/**/*.{html,js}`).on('change', browserSync.reload);
+    gulp.watch(`${pathsProject['src']()}/**/*.{html}`).on('change', browserSync.reload);
 });
 
 gulp.task("sass", () => {
@@ -70,13 +72,14 @@ gulp.task("sass", () => {
         .pipe(browserSync.stream());
 });
 
-gulp.task("ts", function() {
+
+gulp.task("ts", () => {
     var files = glob.sync('src/assets/ts/*.ts');
     return merge(files.map(function(file) {
-        return browserify({
+        var bundler = browserify({
             basedir: '.',
             debug: true,
-            entries: file,
+            entries: ['src/assets/ts/main.ts'],
             cache: {},
             packageCache: {}
         })
@@ -85,11 +88,26 @@ gulp.task("ts", function() {
             presets: ['env'],
             extensions: ['.ts']
         })
-        .bundle()
-        .pipe(plumber())
-        .pipe(source(path.basename(file, '.ts') + ".js"))
-        .pipe(gulp.dest('src/assets/js'))
-        .pipe(browserSync.stream());
+        .plugin(watchify, {
+    
+        });
+        var rebundle = function() {
+            var startDate = new Date();
+            console.log('Update start at ' + startDate.toLocaleString());
+            return bundler.bundle(function(err, buf){
+                if (err){
+                    console.log(err.toString());
+                } else {
+                    console.log(' updated in '+(new Date().getTime() - startDate.getTime())+' ms');
+                }
+            })
+            .pipe(plumber())
+            .pipe(source(path.basename(file, '.ts') + ".js"))
+            .pipe(gulp.dest('src/assets/js'))
+            .pipe(browserSync.stream());
+        };
+        bundler.on('update', rebundle);
+        return rebundle();
     }));
 });
 
